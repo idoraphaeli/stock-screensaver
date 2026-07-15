@@ -1,0 +1,15 @@
+export const STOCK_SYMBOLS: string[] = [
+    'AAPL',
+    'AMZN',
+    'GOOGL',
+    'TSLA',
+    'NVDA',
+    'MU',
+    'SNDK',
+    'IREN',
+    'SPCX',
+    'SPY',
+    'QQQ',
+    'GLD',
+    'BINANCE:BTCUSDT',
+  ];
