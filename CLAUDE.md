@@ -14,11 +14,23 @@ Will eventually be packaged as an Electron desktop app.
   Twelve Data's 8 calls/min free-tier limit made loading 3 timeframes ×
   13 stocks (39 calls) take minutes instead of seconds. Yahoo has no
   hard documented rate limit, so all 39 requests fire immediately.
-- **Yahoo requests go through a Vite dev-server proxy** (`vite.config.ts`,
-  `/yahoo-api` → `query1.finance.yahoo.com`) because Yahoo blocks direct
-  browser requests via CORS. When this becomes an Electron app, this
-  fetching should move to the Electron main process instead, where CORS
-  doesn't apply — the proxy is a dev-only workaround.
+- **Two fetch transports, one code path** (`src/transport.ts`): in the
+  browser (dev), relative `/yahoo-*` paths hit the Vite dev-server proxy
+  (`vite.config.ts`) because Yahoo blocks cross-origin browser requests;
+  in the packaged Electron app, the preload script exposes
+  `window.screensaverNative` and requests go through the main process
+  (`electron/main.cjs`, host-allowlisted IPC), where CORS doesn't apply.
+  All app code just calls `fetchJson`/`fetchText` with proxy-style paths.
+- **Electron packaging → Windows screensaver**: `npm run electron:build`
+  produces `release/win-unpacked/` (a `.scr` is just a renamed exe);
+  `scripts/install-screensaver.ps1` copies it to `%LOCALAPPDATA%` and
+  registers it under `HKCU\Control Panel\Desktop`. The main process
+  handles the Windows screensaver args (`/s` run, `/c` config, `/p`
+  preview → instant exit) and quits on keyboard input or global cursor
+  movement (polled — Electron has no global mouse hook). `vite build`
+  uses `base: './'` so `dist/` works from `file://`. electron-builder
+  needs `electronDist: node_modules/electron/dist` — without it, its own
+  zip extraction loses a rename race against antivirus scanning (EPERM).
 - **Symbol mapping quirks**: crypto uses `BTC-USD` on Yahoo (not
   `BINANCE:BTCUSDT`, which was the Finnhub format). TASE (Israeli) stocks
   use a `.TA` suffix (`RMLI.TA`, `AFHL.TA`) and were only discoverable
@@ -32,8 +44,21 @@ Will eventually be packaged as an Electron desktop app.
 ## Known limitations / things to revisit
 - Yahoo's endpoint is unofficial — could break or get rate-limited without
   notice. No fallback currently exists if it does.
-- `.env` still has unused `VITE_FINNHUB_API_KEY` / `VITE_TWELVEDATA_API_KEY`
-  — harmless leftovers from the old architecture, safe to remove.
+- `VITE_FINNHUB_API_KEY` is **back in use** — upcoming earnings dates come
+  from Finnhub's calendar API (`earnings.ts`), because Yahoo's quoteSummary
+  endpoint (which has that data) is crumb/cookie-gated and returns 401.
+  Only plain US tickers get earnings badges; Finnhub doesn't cover TASE.
+  `VITE_TWELVEDATA_API_KEY` is still unused and safe to remove.
+- Yahoo's chart endpoint has no `meta.previousClose` (verified for both US
+  and TASE symbols), and `meta.chartPreviousClose` is the close before the
+  *range* start — daily change is therefore derived from the last two bars
+  of the 5d/1d series in `fetchYahooQuote`. Don't "simplify" it back to
+  meta fields.
+- `MarketStatus.tsx` hardcodes NYSE/TASE regular trading hours and ignores
+  exchange holidays — on a holiday it will wrongly show "open".
+- Stock logos come from Google's favicon service (`StockLogo.tsx`, domain
+  map in `screens.ts`) — an external browser request that bypasses the
+  proxy; unknown domains 404 and fall back to a letter avatar.
 
 ## Conventions
 - Hebrew is used in chat with the developer, but all UI text is English.

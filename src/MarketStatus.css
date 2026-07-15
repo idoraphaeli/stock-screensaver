@@ -1,0 +1,34 @@
+.market-status {
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.market {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.market-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.market.open .market-dot {
+  background-color: var(--positive);
+}
+
+.market.open .market-name {
+  color: var(--positive);
+}
+
+.market-name {
+  font-weight: 700;
+  letter-spacing: 1px;
+}

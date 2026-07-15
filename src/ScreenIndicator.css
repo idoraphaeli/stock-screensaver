@@ -1,0 +1,42 @@
+.screen-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 44px;
+}
+
+.indicator-track {
+  width: 68px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: var(--border-color);
+  overflow: hidden;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+}
+
+.indicator-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+}
+
+.indicator-progress {
+  display: block;
+  height: 100%;
+  background-color: var(--accent-blue);
+  animation-name: grow-width;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes grow-width {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}

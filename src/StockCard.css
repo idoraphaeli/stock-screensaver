@@ -1,46 +1,194 @@
-.stock-card {
+.stock-row {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    direction: ltr;
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px;
-    min-width: 160px;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    border-radius: 14px;
+    padding: 20px 30px;
+    box-shadow: var(--shadow-card);
   }
-  
-  .stock-card:hover {
-    border-color: var(--accent-blue);
-    transform: translateY(-2px);
+
+  /* A daily move past the threshold gets a tinted border — the "you
+     should notice this" signal when glancing from across the room. */
+  .stock-row.big-move-up {
+    border-color: rgba(63, 185, 80, 0.55);
   }
-  
-  .stock-symbol {
-    font-size: 14px;
-    font-weight: 700;
+
+  .stock-row.big-move-down {
+    border-color: rgba(248, 81, 73, 0.55);
+  }
+
+  /* row-reverse so the DOM order (logo, symbol, price, change) renders
+     right-to-left: logo hugs the right edge, change badge is innermost —
+     matching the row-reverse layout of .stock-row itself. */
+  .stock-info {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 18px;
+    min-width: 420px;
+  }
+
+  .stock-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .stock-logo-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--border-color);
     color: var(--text-secondary);
-    letter-spacing: 1px;
-    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 700;
   }
-  
+
+  .stock-ident {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 110px;
+  }
+
+  .stock-symbol {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    text-align: right;
+  }
+
+  .stock-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .stock-price {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 500;
     color: var(--text-primary);
+    min-width: 150px;
+    text-align: right;
   }
-  
-  .stock-loading {
-    font-size: 14px;
-    color: var(--text-secondary);
-  }
-  
+
   .stock-change {
     font-size: 15px;
     font-weight: 500;
-    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .earnings-badge {
+    font-size: 12px;
+    color: #d4a72c;
+    background-color: rgba(212, 167, 44, 0.12);
+    padding: 3px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
   }
   
   .stock-change.positive {
-    color: #3fb950;
+    color: var(--positive);
+    background-color: var(--positive-dim);
   }
   
   .stock-change.negative {
-    color: #f85149;
+    color: var(--negative);
+    background-color: var(--negative-dim);
+  }
+  
+  .stock-charts {
+    display: flex;
+    gap: 32px;
+    animation: fade-in 0.4s ease;
+  }
+  
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .chart-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 120px;
+  }
+
+  .chart-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    letter-spacing: 1px;
+  }
+
+  .chart-range-change {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* Re-draws the sparkline every time its screen becomes active: the
+     animation property appears/disappears with .screen-active, which
+     restarts it from the beginning. */
+  .screen-active .chart-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: chart-draw 1.2s ease-out forwards;
+  }
+
+  @keyframes chart-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  
+  .chart-range-change.positive {
+    color: var(--positive);
+  }
+  
+  .chart-range-change.negative {
+    color: var(--negative);
+  }
+  
+  .stock-loading {
+    display: flex;
+    gap: 5px;
+  }
+  
+  .loading-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--text-tertiary);
+    animation: pulse 1.2s infinite ease-in-out;
+  }
+  
+  .loading-dot:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.3s; }
+  
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+  
+  .stock-error {
+    font-size: 13px;
+    color: var(--text-tertiary);
   }

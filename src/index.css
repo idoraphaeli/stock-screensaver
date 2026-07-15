@@ -1,10 +1,20 @@
+/* Near-black base: looks better from across the room and lets OLED
+   panels switch pixels off entirely. */
 :root {
-  --bg-primary: #0d1117;
-  --bg-card: #161b22;
-  --border-color: #30363d;
+  --bg-primary: #04060a;
+  --bg-card: #0c1017;
+  --bg-card-hover: #0c1017;
+  --border-color: #232a35;
+  --border-hover: #3d4757;
   --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
+  --text-secondary: #7d8797;
+  --text-tertiary: #4a5364;
   --accent-blue: #58a6ff;
+  --positive: #3fb950;
+  --positive-dim: rgba(63, 185, 80, 0.12);
+  --negative: #f85149;
+  --negative-dim: rgba(248, 81, 73, 0.12);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -13,9 +23,37 @@
   padding: 0;
 }
 
+html, body, #root {
+  height: 100%;
+}
+
 body {
   background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(88, 166, 255, 0.04), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(63, 185, 80, 0.04), transparent 40%);
   color: var(--text-primary);
   font-family: 'Roboto Mono', 'Courier New', monospace;
   min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Toggled by App after a few seconds without mouse movement — a
+   screensaver shouldn't show a cursor. */
+body.cursor-hidden,
+body.cursor-hidden * {
+  cursor: none !important;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
 }
