@@ -27,7 +27,12 @@ if (-not $node) { Write-Error "Node.js not found on PATH. Install Node, then re-
 # Scheduler can't hide a console on its own, so we go through wscript.
 $launcher = Join-Path $env:LOCALAPPDATA 'StockScreensaver\run-bot-hidden.vbs'
 New-Item -ItemType Directory -Force (Split-Path $launcher) | Out-Null
-$vbs = 'CreateObject("WScript.Shell").Run """' + $node + '"" """ + "$botScript" + '""", 0, False'
+# VBS runs Node hidden: Run "<node>" "<script>", 0 (hidden window), False
+# (don't wait). Quotes are doubled per VBScript string escaping; the
+# here-string keeps them literal so PowerShell doesn't mangle them.
+$vbs = @"
+CreateObject("WScript.Shell").Run """$node"" ""$botScript""", 0, False
+"@
 Set-Content -Path $launcher -Value $vbs -Encoding ASCII
 
 Write-Host "Registering logon task 'StockScreensaverBot' ..."
