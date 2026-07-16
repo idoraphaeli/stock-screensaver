@@ -11,6 +11,8 @@
 
 const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const configStore = require('../shared/config-store.cjs');
 
 const args = process.argv.slice(app.isPackaged ? 1 : 2);
 const windowed = args.includes('--windowed');
@@ -26,7 +28,12 @@ const DEV_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173';
 // The renderer fetches market data through this IPC bridge because the
 // main process isn't subject to browser CORS (this replaces the Vite
 // dev-server proxy). Allowlisted hosts only.
-const ALLOWED_HOSTS = new Set(['query1.finance.yahoo.com', 'feeds.finance.yahoo.com', 'finnhub.io']);
+const ALLOWED_HOSTS = new Set([
+  'query1.finance.yahoo.com',
+  'feeds.finance.yahoo.com',
+  'finnhub.io',
+  'www.globes.co.il',
+]);
 
 function assertAllowed(url) {
   const host = new URL(url).hostname;
@@ -47,7 +54,36 @@ ipcMain.handle('fetch-text', async (_event, url) => {
   return response.text();
 });
 
-function createWindow(display) {
+// The renderer asks for the current screen list on load; the file is
+// seeded from bundled defaults on first run.
+ipcMain.handle('get-screens', () => configStore.ensureSeeded());
+
+// Watch screens.json for edits (the Telegram bot writes it) and push the
+// new list to every window, so a bot message updates the display live.
+// We watch the directory, not the file — atomic writes replace the file
+// via rename, which can silence a file-level watcher.
+function watchScreensConfig(getWindows) {
+  const dir = configStore.configDir();
+  fs.mkdirSync(dir, { recursive: true });
+
+  let debounce = null;
+  fs.watch(dir, (_event, filename) => {
+    if (filename && !filename.startsWith('screens.json')) return;
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      const screens = configStore.readScreens();
+      if (!screens) return;
+      for (const win of getWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('screens-changed', screens);
+      }
+    }, 300);
+  });
+}
+
+// displayIndex offsets which of the rotating screens this window shows
+// (see DISPLAY_OFFSET in src/App.tsx) — on multi-monitor setups each
+// monitor shows a different screen instead of duplicating one.
+function createWindow(display, displayIndex) {
   const win = new BrowserWindow({
     x: display.bounds.x,
     y: display.bounds.y,
@@ -73,9 +109,11 @@ function createWindow(display) {
   });
 
   if (useDist) {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), {
+      query: { display: String(displayIndex) },
+    });
   } else {
-    win.loadURL(DEV_URL);
+    win.loadURL(`${DEV_URL}?display=${displayIndex}`);
   }
 
   return win;
@@ -106,8 +144,8 @@ if (mode === 'preview') {
     await dialog.showMessageBox({
       type: 'info',
       title: 'Stock Screensaver',
-      message: 'No settings here yet',
-      detail: 'Edit src/screens.ts in the project and rebuild to change the stock list.',
+      message: 'Change stocks from Telegram',
+      detail: 'Message your screensaver bot to add or remove stocks — changes apply live. See bot/README for setup.',
     });
     app.quit();
   });
@@ -116,30 +154,45 @@ if (mode === 'preview') {
 } else {
   app.whenReady().then(() => {
     const displays = windowed ? [screen.getPrimaryDisplay()] : screen.getAllDisplays();
-    const windows = displays.map(createWindow);
+    const windows = displays.map((display, index) => createWindow(display, index));
+
+    watchScreensConfig(() => windows);
 
     if (!windowed) {
       quitOnUserInput(windows);
     }
 
-    // Self-test hook: report what actually rendered, then exit.
+    // Self-test hook: report what rendered, then (for the live-config test)
+    // edit screens.json mid-run and confirm the renderer picks it up.
     if (process.env.SCREENSAVER_SMOKE === '1') {
+      const countSymbol = (sym) =>
+        `[...document.querySelectorAll('.stock-symbol')].filter(s => s.textContent === '${sym}').length`;
+
       setTimeout(async () => {
         try {
+          const before = await windows[0].webContents.executeJavaScript(countSymbol('SMKT'));
+
+          // Add a probe symbol to the portfolio and wait for the watcher +
+          // renderer to react.
+          configStore.addSymbol('portfolio', 'SMKT');
+          await new Promise((r) => setTimeout(r, 2500));
+          const after = await windows[0].webContents.executeJavaScript(countSymbol('SMKT'));
+          configStore.removeSymbol('portfolio', 'SMKT'); // clean up the probe
+
           const summary = await windows[0].webContents.executeJavaScript(
             `JSON.stringify({
               prices: document.querySelectorAll('.stock-price').length,
               logos: [...document.querySelectorAll('img.stock-logo')].filter(i => i.naturalWidth > 0).length,
               newsTicker: !!document.querySelector('.news-ticker'),
-              samplePrice: document.querySelector('.stock-price')?.textContent ?? null,
             })`
           );
           console.log('SMOKE', summary);
+          console.log('SMOKE liveReload', JSON.stringify({ before, after, applied: before === 0 && after === 1 }));
         } catch (error) {
           console.log('SMOKE ERROR', error.message);
         }
         app.quit();
-      }, 10000);
+      }, 9000);
     }
   });
 

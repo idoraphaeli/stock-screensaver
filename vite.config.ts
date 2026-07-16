@@ -9,6 +9,12 @@ export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : '/',
   plugins: [react()],
   server: {
+    watch: {
+      // Vite's file watcher must not touch build outputs: electron-builder
+      // writes locked binaries into release/ mid-build, and watching them
+      // crashes the dev server with EBUSY.
+      ignored: ['**/release/**', '**/dist/**'],
+    },
     proxy: {
       // Yahoo Finance blocks direct browser requests with CORS.
       // Routing through Vite's dev server sidesteps that: the browser talks
@@ -25,6 +31,12 @@ export default defineConfig(({ command }) => ({
         target: 'https://feeds.finance.yahoo.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/yahoo-feeds/, ''),
+      },
+      // Hebrew capital-market headlines for the bottom news ticker.
+      '/globes-feeds': {
+        target: 'https://www.globes.co.il',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/globes-feeds/, ''),
       },
     },
   },

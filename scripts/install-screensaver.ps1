@@ -1,23 +1,41 @@
 # Installs the built screensaver for the current user (no admin needed):
-#   1. Copies release\win-unpacked to %LOCALAPPDATA%\StockScreensaver
-#      (a stable location, so rebuilding/deleting the repo won't break it)
-#   2. Registers it as the Windows screensaver for the current user
+#   1. Finds the newest packaged build under release\ (the output folder
+#      name can vary between builds)
+#   2. Copies it to %LOCALAPPDATA%\StockScreensaver — a stable location,
+#      so rebuilding or deleting the repo won't break the screensaver
+#   3. Registers it as the Windows screensaver for the current user
 #
-# Run from the project root after `npm run electron:build`:
-#   powershell -ExecutionPolicy Bypass -File scripts\install-screensaver.ps1
+# Run after `npm run electron:build`, from anywhere:
+#   powershell -ExecutionPolicy Bypass -File "<project>\scripts\install-screensaver.ps1"
 
 $ErrorActionPreference = 'Stop'
 
-$source = Join-Path $PSScriptRoot "..\release\win-unpacked"
-if (-not (Test-Path (Join-Path $source "StockScreensaver.exe"))) {
-    Write-Error "Build output not found. Run 'npm run electron:build' first."
+$releaseRoot = Join-Path $PSScriptRoot "..\release"
+$exe = Get-ChildItem -Path $releaseRoot -Recurse -Filter "StockScreensaver.exe" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $exe) {
+    Write-Error "No build found under release\. Run 'npm run electron:build' first."
 }
+$source = $exe.DirectoryName
+Write-Host "Using build: $source (built $($exe.LastWriteTime))"
 
 $target = Join-Path $env:LOCALAPPDATA "StockScreensaver"
-Write-Host "Copying build to $target ..."
+
+# Preserve the user's stock list across reinstalls — screens.json lives in
+# this same folder (edited by the Telegram bot) and must survive an update.
+$configFile = Join-Path $target "screens.json"
+$savedConfig = $null
+if (Test-Path $configFile) {
+    $savedConfig = Get-Content -Raw $configFile
+    Write-Host "Preserving existing screens.json ..."
+}
+
+Write-Host "Copying to $target ..."
 if (Test-Path $target) { Remove-Item -Recurse -Force $target }
 Copy-Item -Recurse $source $target
 Copy-Item (Join-Path $target "StockScreensaver.exe") (Join-Path $target "StockScreensaver.scr") -Force
+
+if ($savedConfig) { Set-Content -Path $configFile -Value $savedConfig -Encoding UTF8 }
 
 $scr = Join-Path $target "StockScreensaver.scr"
 Write-Host "Registering $scr as the screensaver ..."

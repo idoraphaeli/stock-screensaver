@@ -6,11 +6,17 @@
 // and requests go through the main process instead, where CORS doesn't
 // apply — so proxy paths are rewritten back to the real hosts here.
 
+import type { ScreenConfig } from './screens';
+
 declare global {
   interface Window {
     screensaverNative?: {
       fetchJson(url: string): Promise<unknown>;
       fetchText(url: string): Promise<string>;
+      // Runtime, user-editable screen list (src/config.ts). Present only
+      // in Electron; absent in the browser.
+      getScreens?(): Promise<ScreenConfig[]>;
+      onScreensChanged?(callback: (screens: ScreenConfig[]) => void): () => void;
     };
   }
 }
@@ -18,6 +24,7 @@ declare global {
 const PROXY_HOSTS: Record<string, string> = {
   '/yahoo-api': 'https://query1.finance.yahoo.com',
   '/yahoo-feeds': 'https://feeds.finance.yahoo.com',
+  '/globes-feeds': 'https://www.globes.co.il',
 };
 
 function toAbsoluteUrl(url: string): string {

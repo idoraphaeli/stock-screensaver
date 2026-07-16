@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "electron . --windowed",
-    "electron:build": "npm run build && electron-builder --win dir"
+    "electron:build": "npm run build && electron-builder --win dir",
+    "bot": "node bot/telegram-bot.cjs",
+    "bot:test": "node bot/test-bot-logic.cjs"
   },
   "build": {
     "appId": "com.idoraphaeli.stock-screensaver",
@@ -23,7 +25,9 @@
     },
     "files": [
       "dist/**",
-      "electron/**"
+      "electron/**",
+      "shared/**",
+      "config/**"
     ],
     "win": {
       "target": "dir"

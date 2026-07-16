@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { fetchYahooQuote, fetchYahooHistory, toYahooSymbol } from './yahooFinance';
-import type { YahooHistoryResult } from './yahooFinance';
+import { fetchYahooQuote, fetchYahooHistory, fetchAllTimeHigh, toYahooSymbol } from './yahooFinance';
+import type { YahooHistoryResult, ExtendedSession } from './yahooFinance';
 import { fetchNextEarningsDate } from './earnings';
 
 export type StockStatus = 'loading' | 'success' | 'error';
@@ -21,6 +21,10 @@ interface StockData {
   charts: Timeframes;
   status: StockStatus;
   earningsInDays: number | null;
+  high52w: number | null;
+  allTimeHigh: number | null;
+  extendedPrice: number | null;
+  extendedSession: ExtendedSession | null;
 }
 
 const PRICE_REFRESH_MS = 60000; // keep the price "live" for long-running screensaver sessions
@@ -43,6 +47,10 @@ export function useStockData(symbol: string): StockData {
   const [currency, setCurrency] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [earningsInDays, setEarningsInDays] = useState<number | null>(null);
+  const [high52w, setHigh52w] = useState<number | null>(null);
+  const [allTimeHigh, setAllTimeHigh] = useState<number | null>(null);
+  const [extendedPrice, setExtendedPrice] = useState<number | null>(null);
+  const [extendedSession, setExtendedSession] = useState<ExtendedSession | null>(null);
   const [charts, setCharts] = useState<Timeframes>({
     day: EMPTY_SERIES,
     month: EMPTY_SERIES,
@@ -58,12 +66,15 @@ export function useStockData(symbol: string): StockData {
 
     function fetchQuote() {
       fetchYahooQuote(yahooSymbol)
-        .then(({ price, changePercent, currency, name }) => {
+        .then(({ price, changePercent, currency, name, high52w, extendedPrice, extendedSession }) => {
           if (cancelled) return;
           setPrice(price);
           setChangePercent(changePercent);
           setCurrency(currency);
           setName(name);
+          setHigh52w(high52w);
+          setExtendedPrice(extendedPrice);
+          setExtendedSession(extendedSession);
           setStatus('success');
         })
         .catch(() => {
@@ -94,6 +105,21 @@ export function useStockData(symbol: string): StockData {
     });
   }, [yahooSymbol]);
 
+  // All-time high — fetched once per symbol from the full history.
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllTimeHigh(yahooSymbol)
+      .then((high) => {
+        if (!cancelled) setAllTimeHigh(high);
+      })
+      .catch(() => {
+        // Missing history just means no all-time-high star.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [yahooSymbol]);
+
   // Next earnings date — fetched once per symbol (Finnhub, using the
   // original symbol format, not Yahoo's).
   useEffect(() => {
@@ -112,5 +138,17 @@ export function useStockData(symbol: string): StockData {
     };
   }, [symbol]);
 
-  return { price, changePercent, currency, name, charts, status, earningsInDays };
+  return {
+    price,
+    changePercent,
+    currency,
+    name,
+    charts,
+    status,
+    earningsInDays,
+    high52w,
+    allTimeHigh,
+    extendedPrice,
+    extendedSession,
+  };
 }

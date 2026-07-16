@@ -4,21 +4,43 @@ import ScreenIndicator from './ScreenIndicator';
 import Clock from './Clock';
 import MarketStatus from './MarketStatus';
 import NewsTicker from './NewsTicker';
-import { SCREENS } from './screens';
+import { DEFAULT_SCREENS, SLIDE_INTERVAL_MS } from './screens';
+import type { ScreenConfig } from './screens';
+import { loadScreens, subscribeScreens } from './config';
 import './App.css';
 
-const SLIDE_INTERVAL_MS = 10000;
 const CURSOR_HIDE_MS = 4000;
 const BURN_IN_SHIFT_MS = 120000; // nudge the whole layout every 2 minutes
 const BURN_IN_SHIFT_RANGE = 6; // ±px in each axis
 
+// On multi-monitor setups the Electron main process opens one window per
+// display and tags each with ?display=N. Each window shows a different
+// screen (offset by N) while rotating in sync, so the same screen never
+// appears on two monitors at once (as long as displays ≤ screens).
+const DISPLAY_OFFSET =
+  Number(new URLSearchParams(window.location.search).get('display') ?? '0') || 0;
+
 function App() {
   const [activeScreen, setActiveScreen] = useState(0);
   const [shift, setShift] = useState({ x: 0, y: 0 });
+  // Live screen list: the bundled defaults on first paint, then whatever
+  // the Electron main process reports from screens.json (edited by the
+  // Telegram bot). Updates in place while the screensaver runs.
+  const [screens, setScreens] = useState<ScreenConfig[]>(DEFAULT_SCREENS);
+
+  useEffect(() => {
+    loadScreens().then(setScreens);
+    return subscribeScreens(setScreens);
+  }, []);
+
+  // activeScreen grows unbounded; the modulo is applied here so the rotation
+  // interval doesn't capture a stale screen count when the list changes.
+  const screenCount = screens.length || 1;
+  const shownScreen = ((activeScreen + DISPLAY_OFFSET) % screenCount + screenCount) % screenCount;
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      setActiveScreen((current) => (current + 1) % SCREENS.length);
+      setActiveScreen((current) => current + 1);
     }, SLIDE_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
@@ -66,20 +88,22 @@ function App() {
       </header>
 
       <div className="screen-stack">
-        {SCREENS.map((screen, index) => (
+        {screens.map((screen, index) => (
           <StockScreen
             key={screen.id}
             screen={screen}
-            isActive={index === activeScreen}
+            isActive={index === shownScreen}
           />
         ))}
       </div>
 
       <ScreenIndicator
-        total={SCREENS.length}
-        activeIndex={activeScreen}
+        total={screenCount}
+        activeIndex={shownScreen}
         intervalMs={SLIDE_INTERVAL_MS}
-        onSelect={setActiveScreen}
+        onSelect={(index) =>
+          setActiveScreen((index - DISPLAY_OFFSET + screenCount) % screenCount)
+        }
       />
 
       <NewsTicker />

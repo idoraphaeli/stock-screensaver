@@ -31,6 +31,36 @@ Will eventually be packaged as an Electron desktop app.
   uses `base: './'` so `dist/` works from `file://`. electron-builder
   needs `electronDist: node_modules/electron/dist` — without it, its own
   zip extraction loses a rename race against antivirus scanning (EPERM).
+  Gotcha: executing the packaged exe from inside a Claude Code session
+  leaves its `.asar` files locked by the Claude host process until the app
+  restarts, which makes the *next* electron-builder run fail with EBUSY —
+  build to a fresh `--config.directories.output` folder if that happens
+  (the install script auto-finds the newest build under `release\`).
+- **Runtime, remotely-editable stock list**: the active screens live in
+  `%LOCALAPPDATA%\StockScreensaver\screens.json`, NOT the compiled bundle.
+  The Electron main process seeds it from `config/default-screens.json` on
+  first run, serves it to the renderer over IPC (`get-screens`), and
+  watches the file — edits are pushed live via `screens-changed`, so the
+  display updates without a rebuild (`src/config.ts` + `App.tsx` hold it in
+  state). `DEFAULT_SCREENS` in `src/screens.ts` is only the browser-dev
+  fallback and first-paint default; **keep it in sync with
+  `config/default-screens.json`** (two copies — the JSON is the CJS-side
+  seed used by main + bot). `shared/config-store.cjs` is the single
+  read/write/mutate layer, bundled into the asar AND used by the bot.
+- **Telegram control bot** (`bot/`): a standalone always-on Node process
+  (separate from the screensaver, which only runs when idle) that
+  long-polls Telegram — no server/webhook/open port needed. Menu-driven
+  (inline-keyboard buttons) for every choice except the ticker to add,
+  which is typed and validated against Yahoo (`bot/yahoo-validate.cjs`, no
+  LLM). It writes `screens.json` via `shared/config-store.cjs`; the
+  screensaver's watcher applies it live. Auth is by Telegram chat id
+  (`bot/bot-config.json`, gitignored). `scripts/install-bot.ps1` registers
+  a hidden logon task. Core logic is covered by `npm run bot:test`; the
+  Telegram round-trip needs the user's real token/account.
+- **Error isolation**: each card is wrapped in `ErrorBoundary` so one
+  symbol's malformed data can't blank the whole (unattended, long-running)
+  screensaver. `formatPrice` uses `== null` to tolerate Yahoo omitting a
+  price entirely.
 - **Symbol mapping quirks**: crypto uses `BTC-USD` on Yahoo (not
   `BINANCE:BTCUSDT`, which was the Finnhub format). TASE (Israeli) stocks
   use a `.TA` suffix (`RMLI.TA`, `AFHL.TA`) and were only discoverable
@@ -62,6 +92,23 @@ Will eventually be packaged as an Electron desktop app.
 
 ## Conventions
 - Hebrew is used in chat with the developer, but all UI text is English.
-- Layout uses `flex-direction: row-reverse` on `.stock-row` to put
-  symbol/price on the right and charts flowing left — intentional design
-  choice, not a bug.
+- Info reads right-to-left (logo on the far right, then ticker, price,
+  change; charts flow on the left) — intentional design choice, not a bug.
+  Each `.stock-row` is an 8-column CSS grid with fixed column widths so
+  columns align across rows; badges live in the single flexible column so
+  their varying width can't shift anything.
+- Rows within a screen are live-sorted by daily change (biggest gainer
+  first): cards report their change up to `StockScreen`, which positions
+  each card in an absolutely-positioned slot (`top` transition animates
+  reorder without remounting cards — remounting would refetch).
+- `SYMBOL_LABELS` in `screens.ts` overrides the displayed ticker (e.g.
+  GOOGL renders as "ALPHABET"); `SYMBOL_NAMES` overrides the subtitle.
+  Data always uses the real symbol.
+- Multi-monitor: Electron opens one window per display, tagged
+  `?display=N`; each window shows a different screen (offset N) while
+  rotating in sync, so no screen appears twice at once.
+- Screens that overflow their viewport (e.g. Tech with 8+ rows)
+  auto-scroll through their content over exactly one slide interval
+  (`SLIDE_INTERVAL_MS` in `screens.ts`, currently 20s), with short holds
+  at both ends. Distance is measured in `StockScreen`, animated by the
+  `list-scroll` keyframes in `App.css`.

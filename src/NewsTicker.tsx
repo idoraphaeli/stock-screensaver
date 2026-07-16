@@ -1,23 +1,28 @@
-import { useState, useEffect } from 'react';
-import { SCREENS } from './screens';
-import { toYahooSymbol } from './yahooFinance';
+import { useState, useEffect, useRef } from 'react';
 import { fetchText } from './transport';
 import './NewsTicker.css';
 
 const REFRESH_MS = 15 * 60 * 1000;
 
+// Globes' capital-markets feed (Hebrew). Node 585 = "שוק ההון והשקעות".
+const FEED_PATH = '/globes-feeds/webservice/rss/rssfeeder.asmx/FeederNode?iID=585';
+
+// Pixels per second. Deriving the animation duration from the measured
+// line width keeps the crawl at the same comfortable reading speed no
+// matter how many (or how long) the headlines are.
+const SCROLL_SPEED_PX_PER_S = 35;
+
 function NewsTicker() {
   const [headlines, setHeadlines] = useState<string[]>([]);
+  const [durationSec, setDurationSec] = useState(0);
+  const contentRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     function load() {
-      const symbols = SCREENS.flatMap((screen) => screen.symbols)
-        .map(toYahooSymbol)
-        .join(',');
       // fetchText, not cachedFetch — the RSS feed is XML, not JSON.
-      fetchText(`/yahoo-feeds/rss/2.0/headline?s=${symbols}&region=US&lang=en-US`)
+      fetchText(FEED_PATH)
         .then((xml) => {
           if (cancelled) return;
           const doc = new DOMParser().parseFromString(xml, 'text/xml');
@@ -39,6 +44,12 @@ function NewsTicker() {
     };
   }, []);
 
+  useEffect(() => {
+    if (headlines.length > 0 && contentRef.current) {
+      setDurationSec(Math.max(30, Math.round(contentRef.current.offsetWidth / SCROLL_SPEED_PX_PER_S)));
+    }
+  }, [headlines]);
+
   if (headlines.length === 0) {
     return null;
   }
@@ -48,9 +59,12 @@ function NewsTicker() {
   return (
     <div className="news-ticker">
       {/* The line is rendered twice so the marquee can loop seamlessly:
-          the animation slides exactly one copy's width (-50%). */}
-      <div className="news-ticker-inner">
-        <span className="news-ticker-content">{line}</span>
+          the RTL animation slides exactly one copy's width (+50%). */}
+      <div
+        className="news-ticker-inner"
+        style={durationSec > 0 ? { animationDuration: `${durationSec}s` } : undefined}
+      >
+        <span className="news-ticker-content" ref={contentRef}>{line}</span>
         <span className="news-ticker-content" aria-hidden="true">{line}</span>
       </div>
     </div>

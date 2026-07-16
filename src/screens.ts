@@ -4,9 +4,28 @@ export interface ScreenConfig {
   symbols: string[];
 }
 
+// How long each screen stays up. Also drives the overflow auto-scroll in
+// StockScreen (the full scroll fits exactly one interval).
+export const SLIDE_INTERVAL_MS = 20000;
+
+// Display-name overrides: what the big row label shows instead of the raw
+// ticker. Data still uses the real symbol.
+export const SYMBOL_LABELS: Record<string, string> = {
+  GOOGL: 'ALPHABET',
+  'BINANCE:BTCUSDT': 'BTCUSD',
+  'ILS=X': 'ILS/USD',
+};
+
+// Subtitle overrides for rows where Yahoo's shortName reads awkwardly
+// (e.g. "USD/ILS" under an "ILS/USD" label).
+export const SYMBOL_NAMES: Record<string, string> = {
+  'ILS=X': 'Shekels per Dollar',
+};
+
 // Company website per symbol, used to fetch logos via Google's favicon
 // service (https://www.google.com/s2/favicons). Symbols without an entry
 // (or whose domain 404s) fall back to a letter avatar in <StockLogo>.
+// Some symbols (GLD, ILS=X) use hand-drawn SVGs instead — see StockLogo.tsx.
 export const LOGO_DOMAINS: Record<string, string> = {
   AMZN: 'amazon.com',
   IREN: 'iren.com',
@@ -19,6 +38,7 @@ export const LOGO_DOMAINS: Record<string, string> = {
   'ILS=X': 'boi.org.il',
   NVDA: 'nvidia.com',
   GOOGL: 'google.com',
+  MSFT: 'microsoft.com',
   TSLA: 'tesla.com',
   AAPL: 'apple.com',
   MU: 'micron.com',
@@ -26,7 +46,11 @@ export const LOGO_DOMAINS: Record<string, string> = {
   SPCX: 'spacex.com',
 };
 
-export const SCREENS: ScreenConfig[] = [
+// Bundled defaults — kept in sync with config/default-screens.json (which
+// seeds the runtime file the Telegram bot edits). These are used as-is in
+// the browser (dev) and as the first-paint fallback in Electron until the
+// live screens.json loads. See src/config.ts.
+export const DEFAULT_SCREENS: ScreenConfig[] = [
   {
     id: 'portfolio',
     title: 'My Portfolio',
@@ -40,6 +64,6 @@ export const SCREENS: ScreenConfig[] = [
   {
     id: 'tech',
     title: 'Tech Stocks',
-    symbols: ['NVDA', 'GOOGL', 'TSLA', 'AAPL', 'MU', 'SNDK', 'SPCX'],
+    symbols: ['NVDA', 'GOOGL', 'MSFT', 'TSLA', 'AAPL', 'MU', 'SNDK', 'SPCX'],
   },
 ];

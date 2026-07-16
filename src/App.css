@@ -1,7 +1,10 @@
+/* Locked to the viewport: overflowing screens scroll inside their own
+   viewport (see .stock-viewport), never the page. */
 .app-container {
   direction: ltr;
   padding: 40px 60px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   transition: transform 2s ease; /* smooth burn-in drift */
@@ -22,13 +25,22 @@
   text-align: left;
 }
 
+/* minmax(0, 1fr) caps the single (stacked) cell at the stack's own
+   height, so tall screens overflow into .stock-viewport instead of
+   growing the page. */
 .screen-stack {
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   flex: 1;
+  min-height: 0;
 }
 
 .screen {
   grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   opacity: 0;
   transform: translateX(48px);
   pointer-events: none;
@@ -41,10 +53,38 @@
   pointer-events: auto;
 }
 
+.stock-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Rows are absolutely-positioned slots so the sort-by-daily-change
+   reorder animates (top transition) without remounting the cards. */
 .stock-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  position: relative;
+}
+
+.stock-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transition: top 0.8s ease;
+}
+
+/* Overflowing lists scroll through their content while the screen is
+   active: short holds at both ends, one full pass per slide interval. */
+.screen-active .stock-list-scrolling {
+  animation: list-scroll var(--scroll-duration) linear forwards;
+}
+
+@keyframes list-scroll {
+  0%, 12% {
+    transform: translateY(0);
+  }
+  88%, 100% {
+    transform: translateY(var(--scroll-distance));
+  }
 }
 
 .screen-title {

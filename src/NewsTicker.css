@@ -1,27 +1,38 @@
+/* Hebrew crawl: RTL layout, so text enters from the left edge and exits
+   right — the mirror image of an English ticker. A tinted band with an
+   accent top border makes it read as a distinct "live market feed" strip
+   rather than a footnote. */
 .news-ticker {
   overflow: hidden;
-  border-top: 1px solid var(--border-color);
-  margin-top: 28px;
-  padding-top: 14px;
+  direction: rtl;
+  border-top: 2px solid var(--accent-blue);
+  background-color: rgba(88, 166, 255, 0.06);
+  margin-top: 24px;
+  margin-left: -60px;
+  margin-right: -60px;
+  padding: 16px 60px;
 }
 
 .news-ticker-inner {
   display: inline-flex;
   white-space: nowrap;
-  animation: ticker-scroll 120s linear infinite;
+  /* Duration is overridden inline with a value computed from the actual
+     line width (constant px/s speed); this is just a fallback. */
+  animation: ticker-scroll-rtl 240s linear infinite;
 }
 
 .news-ticker-content {
-  font-size: 14px;
-  color: var(--text-secondary);
-  padding-right: 80px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-primary);
+  padding-inline-end: 90px;
 }
 
-@keyframes ticker-scroll {
+@keyframes ticker-scroll-rtl {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(50%);
   }
 }

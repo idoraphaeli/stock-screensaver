@@ -24,3 +24,6 @@ release
 *.sln
 *.sw?
 .env
+
+# Bot secrets (token + chat id)
+bot/bot-config.json

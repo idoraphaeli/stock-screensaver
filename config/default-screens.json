@@ -1,0 +1,19 @@
+{
+  "screens": [
+    {
+      "id": "portfolio",
+      "title": "My Portfolio",
+      "symbols": ["AMZN", "IREN", "RMLI.TA", "AFHL.TA"]
+    },
+    {
+      "id": "indices",
+      "title": "Indices & Commodities",
+      "symbols": ["SPY", "QQQ", "GLD", "BINANCE:BTCUSDT", "ILS=X"]
+    },
+    {
+      "id": "tech",
+      "title": "Tech Stocks",
+      "symbols": ["NVDA", "GOOGL", "MSFT", "TSLA", "AAPL", "MU", "SNDK", "SPCX"]
+    }
+  ]
+}
