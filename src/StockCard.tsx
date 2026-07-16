@@ -4,10 +4,14 @@ import StockLogo from './StockLogo';
 import { useStockData } from './useStockData';
 import type { ExtendedSession } from './yahooFinance';
 import { SYMBOL_LABELS, SYMBOL_NAMES } from './screens';
+import type { SymbolLabel } from './screens';
 import './StockCard.css';
 
 interface StockCardProps {
   symbol: string;
+  // Live display override from screens.json (set via the Telegram bot), if
+  // any. Takes precedence over the hardcoded SYMBOL_LABELS / SYMBOL_NAMES.
+  override?: SymbolLabel;
   // Lets the screen sort its rows by daily change (see StockScreen).
   onChangeReport: (symbol: string, changePercent: number | null) => void;
 }
@@ -75,7 +79,7 @@ function HighStar({ type }: { type: 'ath' | '52w' }) {
   );
 }
 
-function StockCard({ symbol, onChangeReport }: StockCardProps) {
+function StockCard({ symbol, override, onChangeReport }: StockCardProps) {
   const {
     price,
     changePercent,
@@ -94,8 +98,8 @@ function StockCard({ symbol, onChangeReport }: StockCardProps) {
     onChangeReport(symbol, changePercent);
   }, [symbol, changePercent, onChangeReport]);
 
-  const label = SYMBOL_LABELS[symbol] ?? symbol;
-  const displayName = SYMBOL_NAMES[symbol] ?? name;
+  const label = override?.label ?? SYMBOL_LABELS[symbol] ?? symbol;
+  const displayName = override?.name ?? SYMBOL_NAMES[symbol] ?? name;
   const isPositive = changePercent !== null && changePercent >= 0;
   const isBigMove = changePercent !== null && Math.abs(changePercent) >= BIG_MOVE_THRESHOLD;
   const rowClassName = isBigMove
@@ -188,7 +192,7 @@ function StockCard({ symbol, onChangeReport }: StockCardProps) {
         {displayName && <span className="stock-name">{displayName}</span>}
       </div>
 
-      <StockLogo symbol={symbol} />
+      <StockLogo symbol={symbol} label={label} logoDomain={override?.logo} />
     </div>
   );
 }

@@ -75,7 +75,11 @@ function StockScreen({ screen, isActive }: StockScreenProps) {
               style={{ top: (rankOf.get(symbol) ?? 0) * (ROW_HEIGHT + ROW_GAP) }}
             >
               <ErrorBoundary fallback={<div className="stock-row" />}>
-                <StockCard symbol={symbol} onChangeReport={reportChange} />
+                <StockCard
+                  symbol={symbol}
+                  override={screen.labels?.[symbol]}
+                  onChangeReport={reportChange}
+                />
               </ErrorBoundary>
             </div>
           ))}

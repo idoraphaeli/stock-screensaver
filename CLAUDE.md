@@ -47,13 +47,23 @@ Will eventually be packaged as an Electron desktop app.
   `config/default-screens.json`** (two copies — the JSON is the CJS-side
   seed used by main + bot). `shared/config-store.cjs` is the single
   read/write/mutate layer, bundled into the asar AND used by the bot.
+  Each screen may also carry an optional `labels` map (`{ [symbol]:
+  { label?, name?, logo? } }`) — per-symbol display overrides set live via
+  the bot; they flow to the renderer over the same IPC and, in the display,
+  take precedence over the hardcoded `SYMBOL_LABELS` / `SYMBOL_NAMES` /
+  `LOGO_DOMAINS` maps (`StockScreen`→`StockCard`→`StockLogo` thread the
+  override down as props).
 - **Telegram control bot** (`bot/`): a standalone always-on Node process
   (separate from the screensaver, which only runs when idle) that
   long-polls Telegram — no server/webhook/open port needed. Menu-driven
-  (inline-keyboard buttons) for every choice except the ticker to add,
-  which is typed and validated against Yahoo (`bot/yahoo-validate.cjs`, no
-  LLM). It writes `screens.json` via `shared/config-store.cjs`; the
-  screensaver's watcher applies it live. Auth is by Telegram chat id
+  (inline-keyboard buttons) for every choice except the free-text fields —
+  the ticker to add (validated against Yahoo, `bot/yahoo-validate.cjs`, no
+  LLM) and the optional display overrides (label / subtitle / logo domain,
+  set on add via "Customize" or after the fact via "Rename / logo", each a
+  skippable `/skip` step in a small typed wizard). It writes `screens.json`
+  via `shared/config-store.cjs` (`addSymbol` takes an optional meta arg;
+  `setLabel` merges overrides onto an existing symbol; `removeSymbol` drops
+  the orphaned override); the screensaver's watcher applies it live. Auth is by Telegram chat id
   (`bot/bot-config.json`, gitignored). `scripts/install-bot.ps1` registers
   a hidden logon task. Core logic is covered by `npm run bot:test`; the
   Telegram round-trip needs the user's real token/account.
@@ -103,7 +113,9 @@ Will eventually be packaged as an Electron desktop app.
   reorder without remounting cards — remounting would refetch).
 - `SYMBOL_LABELS` in `screens.ts` overrides the displayed ticker (e.g.
   GOOGL renders as "ALPHABET"); `SYMBOL_NAMES` overrides the subtitle.
-  Data always uses the real symbol.
+  Data always uses the real symbol. These are the compile-time baseline;
+  a per-symbol `labels` entry in `screens.json` (set via the bot) overrides
+  them at runtime (see the runtime stock-list note above).
 - Multi-monitor: Electron opens one window per display, tagged
   `?display=N`; each window shows a different screen (offset N) while
   rotating in sync, so no screen appears twice at once.

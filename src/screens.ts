@@ -1,7 +1,19 @@
+// A per-symbol display override, set live via the Telegram bot and stored in
+// screens.json (see shared/config-store.cjs). Any field present here wins over
+// the hardcoded SYMBOL_LABELS / SYMBOL_NAMES / LOGO_DOMAINS maps below.
+export interface SymbolLabel {
+  label?: string; // big displayed ticker (overrides SYMBOL_LABELS)
+  name?: string; // subtitle (overrides SYMBOL_NAMES / Yahoo's shortName)
+  logo?: string; // website domain for the favicon logo (overrides LOGO_DOMAINS)
+}
+
 export interface ScreenConfig {
   id: string;
   title: string;
   symbols: string[];
+  // Optional display overrides keyed by raw symbol. Absent for screens whose
+  // symbols all use the hardcoded defaults.
+  labels?: Record<string, SymbolLabel>;
 }
 
 // How long each screen stays up. Also drives the overflow auto-scroll in

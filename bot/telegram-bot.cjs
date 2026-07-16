@@ -69,7 +69,10 @@ function mainMenu(chatId, text = 'What would you like to do?') {
           { text: '➕ Add stock', callback_data: 'act' + SEP + 'add' },
           { text: '➖ Remove stock', callback_data: 'act' + SEP + 'remove' },
         ],
-        [{ text: '📋 Show current', callback_data: 'act' + SEP + 'show' }],
+        [
+          { text: '✏️ Rename / logo', callback_data: 'act' + SEP + 'rename' },
+          { text: '📋 Show current', callback_data: 'act' + SEP + 'show' },
+        ],
       ],
     },
   });
@@ -84,15 +87,67 @@ function screenButtons(prefix) {
   return rows;
 }
 
+// A symbol with its custom display label shown as "SYMBOL (label)" when one
+// is set, so `Show current` and the rename picker reveal the overrides.
+function symbolWithLabel(screen, symbol) {
+  const custom = screen.labels && screen.labels[symbol] && screen.labels[symbol].label;
+  return custom ? `${symbol} (${custom})` : symbol;
+}
+
 function showCurrent(chatId) {
   const screens = configStore.ensureSeeded();
-  const lines = screens.map((screen) => `*${screen.title}*: ${screen.symbols.join(', ') || '(empty)'}`);
+  const lines = screens.map((screen) => {
+    const list = screen.symbols.map((symbol) => symbolWithLabel(screen, symbol)).join(', ');
+    return `*${screen.title}*: ${list || '(empty)'}`;
+  });
   return tg('sendMessage', {
     chat_id: chatId,
     text: '📋 Current stocks:\n\n' + lines.join('\n'),
     parse_mode: 'Markdown',
     reply_markup: { inline_keyboard: [[{ text: '« Menu', callback_data: 'menu' }]] },
   });
+}
+
+// The add/rename customization wizard collects three optional typed fields in
+// sequence — label → subtitle → logo — each skippable with /skip. State lives
+// in chatState as { step, screenId, symbol, mode: 'add' | 'rename', meta,
+// current }. `current` holds the existing override (rename only) so prompts
+// can show what's set now.
+const WIZARD_STEPS = ['awaiting_label', 'awaiting_name', 'awaiting_logo'];
+
+const STEP_PROMPTS = {
+  awaiting_label: {
+    field: 'label',
+    ask: 'Send a *display label* — the big ticker text shown on screen (e.g. `TA125`).',
+  },
+  awaiting_name: {
+    field: 'name',
+    ask: 'Send a *subtitle* — the small name under the ticker (e.g. `Tel Aviv 125`).',
+  },
+  awaiting_logo: {
+    field: 'logo',
+    ask: 'Send a *website* for the logo (e.g. `tase.co.il`). It becomes the row icon.',
+  },
+};
+
+function askStep(chatId, state) {
+  const prompt = STEP_PROMPTS[state.step];
+  const currentValue = state.current && state.current[prompt.field];
+  const currentLine = currentValue ? `\nCurrent: \`${currentValue}\`` : '';
+  return tg('sendMessage', {
+    chat_id: chatId,
+    text: `${prompt.ask}${currentLine}\n\nOr send /skip to ${currentValue ? 'keep it' : 'leave it as default'}.`,
+    parse_mode: 'Markdown',
+  });
+}
+
+function finalizeWizard(chatId, state) {
+  const result =
+    state.mode === 'rename'
+      ? configStore.setLabel(state.screenId, state.symbol, state.meta)
+      : configStore.addSymbol(state.screenId, state.symbol, state.meta);
+  const verb = state.mode === 'rename' ? 'Updated' : 'Added';
+  return mainMenu(chatId, result.ok ? `${verb} ${state.symbol} ✓` : `⚠️ ${result.error}`);
 }
 
 async function handleCallback(query) {
@@ -122,6 +177,13 @@ async function handleCallback(query) {
         chat_id: chatId,
         text: 'Remove from which screen?',
         reply_markup: { inline_keyboard: screenButtons('rmscr') },
+      });
+    }
+    if (action === 'rename') {
+      return tg('sendMessage', {
+        chat_id: chatId,
+        text: 'Rename / set logo in which screen?',
+        reply_markup: { inline_keyboard: screenButtons('rnscr') },
       });
     }
   }
@@ -154,6 +216,48 @@ async function handleCallback(query) {
       parse_mode: 'Markdown',
       reply_markup: { inline_keyboard: rows },
     });
+  }
+
+  // Chose a screen to rename in → list its symbols (with any current label).
+  if (parts[0] === 'rnscr') {
+    const screenId = parts[1];
+    const screen = configStore.ensureSeeded().find((s) => s.id === screenId);
+    if (!screen || screen.symbols.length === 0) {
+      return tg('sendMessage', { chat_id: chatId, text: 'That screen has no stocks.' });
+    }
+    const rows = screen.symbols.map((symbol) => [
+      { text: symbolWithLabel(screen, symbol), callback_data: 'rn' + SEP + screenId + SEP + symbol },
+    ]);
+    rows.push([{ text: '« Back', callback_data: 'menu' }]);
+    return tg('sendMessage', {
+      chat_id: chatId,
+      text: `Tap a stock to rename / set its logo in *${screen.title}*:`,
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: rows },
+    });
+  }
+
+  // Chose a symbol to rename → start the customization wizard (rename mode).
+  if (parts[0] === 'rn') {
+    const screenId = parts[1];
+    const symbol = parts.slice(2).join(SEP);
+    chatState.set(chatId, {
+      step: 'awaiting_label',
+      screenId,
+      symbol,
+      mode: 'rename',
+      meta: {},
+      current: configStore.getLabel(screenId, symbol),
+    });
+    return askStep(chatId, chatState.get(chatId));
+  }
+
+  // Chose to customize a to-be-added symbol → start the wizard (add mode).
+  if (parts[0] === 'custom') {
+    const screenId = parts[1];
+    const symbol = parts.slice(2).join(SEP);
+    chatState.set(chatId, { step: 'awaiting_label', screenId, symbol, mode: 'add', meta: {} });
+    return askStep(chatId, chatState.get(chatId));
   }
 
   // Confirmed removal.
@@ -200,11 +304,28 @@ async function handleMessage(message) {
         inline_keyboard: [
           [
             { text: `✅ Add ${check.symbol}`, callback_data: 'confirm' + SEP + state.screenId + SEP + check.symbol },
-            { text: '❌ Cancel', callback_data: 'menu' },
+            { text: '✏️ Customize', callback_data: 'custom' + SEP + state.screenId + SEP + check.symbol },
           ],
+          [{ text: '❌ Cancel', callback_data: 'menu' }],
         ],
       },
     });
+  }
+
+  // In the customization wizard (add or rename): each step takes one typed
+  // value or /skip, then advances; the last step commits the change.
+  if (state && WIZARD_STEPS.includes(state.step)) {
+    const skip = text === '/skip' || text === '-';
+    const { field } = STEP_PROMPTS[state.step];
+    if (!skip) state.meta[field] = text;
+
+    const nextStep = WIZARD_STEPS[WIZARD_STEPS.indexOf(state.step) + 1];
+    if (nextStep) {
+      state.step = nextStep;
+      return askStep(chatId, state);
+    }
+    chatState.delete(chatId);
+    return finalizeWizard(chatId, state);
   }
 
   // Anything else: nudge toward the menu.

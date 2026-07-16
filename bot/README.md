@@ -22,9 +22,26 @@ screensaver watches that file and updates live while it's running.
 Message the bot `/manage` (or `/start`). It shows buttons:
 
 - **➕ Add stock** → pick a screen → type a ticker (e.g. `AAPL`, `MSFT`,
-  `RMLI.TA`). The bot checks it against Yahoo and asks you to confirm.
+  `RMLI.TA`). The bot checks it against Yahoo, then lets you **✅ Add** it
+  as-is or **✏️ Customize** its display first (see below).
 - **➖ Remove stock** → pick a screen → tap the stock to remove.
-- **📋 Show current** → lists what's on each screen.
+- **✏️ Rename / logo** → pick a screen → tap a stock to change how it's
+  shown on screen, without removing it.
+- **📋 Show current** → lists what's on each screen (a custom label appears
+  as `SYMBOL (label)`).
+
+### Customizing how a stock is shown
+
+When adding (via **Customize**) or renaming, the bot asks for three optional
+fields in turn — send a value, or `/skip` to leave it as-is:
+
+1. **Display label** — the big ticker text on the row (e.g. show Yahoo's
+   `^TA125.TA` as `TA125`).
+2. **Subtitle** — the small name under it (e.g. `Tel Aviv 125`).
+3. **Logo** — a website (e.g. `tase.co.il`); its favicon becomes the row icon.
+
+These are stored per-symbol in `screens.json` and override the built-in
+defaults, so no rebuild is needed.
 
 Changes take effect immediately if the screensaver is running; otherwise
 they apply the next time it starts.
@@ -44,5 +61,6 @@ This registers a hidden logon task. Remove it with
 Notes:
 - Tickers use Yahoo Finance symbols: US tickers are plain (`AAPL`), Tel Aviv
   stocks end in `.TA` (`RMLI.TA`), crypto uses pairs (`BTC-USD`).
-- New stocks show a letter avatar instead of a logo until a logo domain is
-  added in `src/screens.ts` (optional, cosmetic).
+- New stocks show a letter avatar until you give them a logo — either via the
+  bot's **Rename / logo** flow (a website domain) or the built-in
+  `LOGO_DOMAINS` map in `src/screens.ts`.

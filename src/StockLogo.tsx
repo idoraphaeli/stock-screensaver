@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { LOGO_DOMAINS, SYMBOL_LABELS } from './screens';
+import { LOGO_DOMAINS } from './screens';
 
 // Two overlapping circular flags (US in back, Israel in front) for the
 // USD/ILS exchange-rate row.
@@ -78,19 +78,27 @@ const CUSTOM_LOGOS: Record<string, () => ReactElement> = {
 
 interface StockLogoProps {
   symbol: string;
+  // The resolved display label, used for the fallback letter avatar.
+  label: string;
+  // A website domain set live via the bot (screens.json). When present it wins
+  // over both the hand-drawn CUSTOM_LOGOS and the hardcoded LOGO_DOMAINS.
+  logoDomain?: string;
 }
 
-function StockLogo({ symbol }: StockLogoProps) {
+function StockLogo({ symbol, label, logoDomain }: StockLogoProps) {
   const [failed, setFailed] = useState(false);
 
-  const Custom = CUSTOM_LOGOS[symbol];
-  if (Custom) {
-    return <Custom />;
+  // A bot-set domain is an explicit choice — honor it before the special-case
+  // hand-drawn marks. Only fall through to those when there's no override.
+  if (!logoDomain) {
+    const Custom = CUSTOM_LOGOS[symbol];
+    if (Custom) {
+      return <Custom />;
+    }
   }
 
-  const domain = LOGO_DOMAINS[symbol];
+  const domain = logoDomain ?? LOGO_DOMAINS[symbol];
   if (!domain || failed) {
-    const label = SYMBOL_LABELS[symbol] ?? symbol;
     return <span className="stock-logo stock-logo-fallback">{label.charAt(0)}</span>;
   }
 
