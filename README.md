@@ -8,8 +8,9 @@ with React, TypeScript, and Electron, and remotely controllable from Telegram.
 
 ## Preview
 
-<!-- Add a screenshot or GIF here, e.g.: -->
-<!-- ![Stock Screensaver](docs/preview.png) -->
+| My Portfolio | Indices & Commodities | Tech Stocks |
+|---|---|---|
+| ![My Portfolio screen](docs/preview-portfolio.png) | ![Indices & Commodities screen](docs/preview-indices.png) | ![Tech Stocks screen](docs/preview-tech.png) |
 
 ## Features
 
